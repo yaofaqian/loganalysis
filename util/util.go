@@ -2,6 +2,7 @@ package util
 
 import (
 	"crypto/md5"
+	"encoding/json"
 	"fmt"
 	"github.com/yeka/zip"
 	"golang.org/x/text/encoding/simplifiedchinese"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //string数据转换为int
@@ -59,8 +61,8 @@ func FileConv(data string) (size int64) {
 func ZipHandle(packagePath string, filePath string, logTime string) error {
 	r, err := zip.OpenReader(packagePath)
 	if err != nil {
-		fmt.Println(err.Error())
-		return err
+		log.Println(err.Error())
+		os.Exit(1)
 	}
 	defer r.Close()
 	fpath := ""
@@ -116,4 +118,124 @@ func Md5Encryption(str string) string {
 	data := []byte(str)
 	has := md5.Sum(data)
 	return fmt.Sprintf("%x", has)
+}
+
+type LastAcquisitionDate struct {
+	LastDate string `json:"last_date"`
+}
+
+//获取最后采集日期
+func GetLastAcquisitionDate() (lastAcquisitionDate LastAcquisitionDate) {
+
+	filePtr, err := os.Open("./last_date/last_date.json")
+	if err != nil {
+		log.Println("Open file failed [Err:%s]", err.Error())
+		return
+	}
+	defer filePtr.Close()
+
+	// 创建json解码器
+	decoder := json.NewDecoder(filePtr)
+	err = decoder.Decode(&lastAcquisitionDate)
+	if err != nil {
+		log.Println("Decoder failed", err.Error())
+
+	}
+	return lastAcquisitionDate
+}
+func LastAcquisitionDateAdd(logTime string) {
+	lastAcquisitionDate := LastAcquisitionDate{logTime}
+
+	// 创建文件
+	filePtr, err := os.Create("./last_date/last_date.json")
+	if err != nil {
+		log.Println("Create file failed", err.Error())
+		return
+	}
+	defer filePtr.Close()
+
+	// 创建Json编码器
+	encoder := json.NewEncoder(filePtr)
+
+	err = encoder.Encode(lastAcquisitionDate)
+	if err != nil {
+		fmt.Println("Encoder failed", err.Error())
+
+	} else {
+		fmt.Println("Encoder success")
+	}
+
+	// 带JSON缩进格式写文件
+	//data, err := json.MarshalIndent(personInfo, "", "  ")
+	//if err != nil {
+	// fmt.Println("Encoder failed", err.Error())
+	//
+	//} else {
+	// fmt.Println("Encoder success")
+	//}
+	//
+	//filePtr.Write(data)
+}
+
+//获取一段时间内每天的日期
+func GetDateFromRange(startTime string, endTime string) (dateList []string) {
+	startTimeTmp, _ := time.Parse("2006-01-02", startTime)
+	endTimeTmp, _ := time.Parse("2006-01-02", endTime)
+	days := int((endTimeTmp.Unix() - startTimeTmp.Unix()) / 86400)
+	for i := 1; i <= days; i++ {
+		tmpTime := startTimeTmp.Unix() + int64(86400*i)
+		dateList = append(dateList, time.Unix(tmpTime, 0).Format("2006-01-02"))
+	}
+	return dateList
+}
+
+//求并集
+func UnionString(slice1, slice2 []string) []string {
+	m := make(map[string]int)
+	for _, v := range slice1 {
+		m[v]++
+	}
+
+	for _, v := range slice2 {
+		times, _ := m[v]
+		if times == 0 {
+			slice1 = append(slice1, v)
+		}
+	}
+	return slice1
+}
+
+//求交集
+func IntersectString(slice1, slice2 []string) []string {
+	m := make(map[string]int)
+	nn := make([]string, 0)
+	for _, v := range slice1 {
+		m[v]++
+	}
+
+	for _, v := range slice2 {
+		times, _ := m[v]
+		if times == 1 {
+			nn = append(nn, v)
+		}
+	}
+	return nn
+}
+
+//获取数组差集 字符串类型
+func DifferenceString(slice1, slice2 []string) []string {
+	m := make(map[string]int)
+	nn := make([]string, 0)
+	inter := IntersectString(slice1, slice2)
+	for _, v := range inter {
+		m[v]++
+	}
+
+	for _, value := range slice1 {
+		times, _ := m[value]
+		if times == 0 {
+			nn = append(nn, value)
+		}
+	}
+	return nn
 }

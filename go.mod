@@ -9,6 +9,7 @@ require (
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/lingdor/glog2midlog v1.0.0
 	github.com/lingdor/midlog v1.0.0
+	github.com/otiai10/gosseract/v2 v2.2.4 // indirect
 	github.com/panjf2000/ants/v2 v2.4.1
 	github.com/spf13/viper v1.7.1
 	github.com/yeka/zip v0.0.0-20180914125537-d046722c6feb

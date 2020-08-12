@@ -20,6 +20,7 @@ func main() {
 	LogAnalysisLogic.SetGeneralLogChan(3000)
 	LogAnalysisLogic.SetCloseProgramChan(10)
 	LogAnalysisLogic.ZipDecompress()
+	//util.LastAcquisitionDateAdd(logTime)
 	//计算程序运行时间
 	endTime := time.Since(startTime)
 	log.Printf("程序执行完成,程序运行时间---%s", endTime)

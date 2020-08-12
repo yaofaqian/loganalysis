@@ -19,6 +19,8 @@ import (
 const (
 	GeneralLogAnalysis  = 1
 	SecurityLogAnalysis = 2
+	Collected           = 1
+	NotCollected        = 0
 )
 
 //日志分析处理
@@ -61,14 +63,31 @@ func (this *LogAnalysisLogic) SetCloseProgramChan(total int) {
 
 //将指定路径下的zip包解压然后遍历所有文件
 func (this *LogAnalysisLogic) ZipDecompress() {
-	//初始化一个slice类型的channel
-	//generalLogChan := make(chan []string, 10)
-	zipFilePath := filepath.Join(this.dirPath, this.logTime+".zip")
-	err := util.ZipHandle(zipFilePath, this.dirPath, this.logTime)
-	if err != nil {
-		log.Println("解压缩包出现问题", err.Error())
+	//有则跳过无则插入
+	recordLogDate := time.Now().Format("2006-01-02")
+	id := services.LogCollectionRecordOneServices(GeneralLogAnalysis, recordLogDate)
+	if id == 0 {
+		//采集日志状态入库 初始化一个未采集，采集完成更新采集状态
+		services.LogCollectionRecordAddServices(this.logTime, GeneralLogAnalysis, 0, 0, NotCollected)
 	}
-	this.eachFile(filepath.Join(this.dirPath, this.logTime))
+
+	//获取未采集日期列表
+	dateList := services.LogCollectionRecordListServices(GeneralLogAnalysis, NotCollected)
+	for _, v := range dateList {
+		this.logTime = v
+		zipFilePath := filepath.Join(this.dirPath, this.logTime+".zip")
+		_, err := os.Stat(zipFilePath)
+		if err != nil {
+			log.Println(this.logTime, "----没有数据包，跳过处理")
+			continue
+		}
+		err = util.ZipHandle(zipFilePath, this.dirPath, this.logTime)
+		if err != nil {
+			log.Println("解压缩包出现问题", err.Error())
+		}
+		this.eachFile(filepath.Join(this.dirPath, this.logTime))
+	}
+
 }
 
 //遍历解压缩包里的所有文件
@@ -140,10 +159,11 @@ func (this *LogAnalysisLogic) eachFile(eachFilePath string) {
 				if err != nil {
 					log.Println(removeDirPath, "---删除失败")
 				}
-				//执行完任务 将任务日志插入任务执行日志表
-				services.LogCollectionRecordAddServices(this.logTime, GeneralLogAnalysis, this.taskCount, processedCount)
-				log.Println("本次总处理任务数为---", processedCount)
-				fmt.Println("程序执行完成")
+				//执行完任务 根据日期和类型更新采集状态
+				services.LogCollectionRecordUpdateServices(this.logTime, GeneralLogAnalysis, this.taskCount, processedCount, Collected)
+				util.LastAcquisitionDateAdd(this.logTime)
+				log.Println(this.logTime, "---执行完成---本次总处理任务数为---", processedCount)
+				fmt.Println(this.logTime, "程序执行完成")
 				goto quit
 			}
 			fmt.Println(domain, "处理完成")
